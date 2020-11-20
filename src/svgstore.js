@@ -1,4 +1,9 @@
-'use strict';
+// Depends
+const _ = require('lodash');
+const path = require('path');
+const utils = require('./helpers/utils');
+const ConstDependency = require('webpack/lib/dependencies/ConstDependency');
+const NullFactory = require('webpack/lib/NullFactory');
 
 // Defaults
 const defaults = {
@@ -9,133 +14,130 @@ const defaults = {
   svgoOptions: {},
   name: 'sprite.[hash].svg',
   prefix: 'icon-',
-  template: __dirname + '/templates/layout.pug'
+  template: path.join(__dirname, 'templates', 'layout.pug')
 };
 
-// Depends
-const _ = require('lodash');
-const path = require('path');
-const utils = require('./helpers/utils');
-const ConstDependency = require('webpack/lib/dependencies/ConstDependency');
-const NullFactory = require('webpack/lib/NullFactory');
-
-function compatAddPlugin(tappable, hookName, callback, async = false, forType = null) {
-  const method = (async) ? 'tapPromise' : 'tap';
-  if (tappable.hooks) {
+function compatAddPlugin(compiler, hookName, callback, async = false, forType = null) {
+  const method = async ? 'tapPromise' : 'tap';
+  if (compiler.hooks) {
     if (forType) {
-      tappable.hooks[hookName][method](forType, WebpackSvgStore.name, callback);
+      compiler.hooks[hookName][method](forType, WebpackSvgStore.name, callback);
     } else {
-      tappable.hooks[hookName][method](WebpackSvgStore.name, callback);
+      compiler.hooks[hookName][method](WebpackSvgStore.name, callback);
     }
   } else {
-    tappable.plugin(hookName, callback);
+    compiler.plugin(hookName, callback);
   }
 }
 
-const allowedMagicVariables = [
-  '__svg__',
-  '__sprite__',
-  '__svgstore__',
-  '__svgsprite__',
-  '__webpack_svgstore__'
-];
+const allowedMagicVariables = ['__svg__', '__sprite__', '__svgstore__', '__svgsprite__', '__webpack_svgstore__'];
 
 class WebpackSvgStore {
-
   /**
    * Constructor
-   * @param {string} input   [description]
-   * @param {string} output  [description]
    * @param {object} options [description]
    * @return {object}
    */
   constructor(options) {
     this.tasks = {};
     this.options = _.merge({}, defaults, options);
-  };
-
-  addTask(file, value) {
-    this.tasks[file] ? this.tasks[file].push(value) : (() => {
-      this.tasks[file] = [];
-      this.tasks[file].push(value);
-    })();
   }
 
+  addTask(file, value) {
+    this.tasks[file]
+      ? this.tasks[file].push(value)
+      : (() => {
+          this.tasks[file] = [];
+          this.tasks[file].push(value);
+        })();
+  }
 
-  createTaskContext(expr, parser) {
+  createTaskContext({ init, id, range, loc }, { state }) {
     const data = {
       path: '/**/*.svg',
       fileName: '[hash].sprite.svg',
-      context: parser.state.current.context
+      context: state.current.context
     };
 
-    expr.init.properties.forEach(function (prop) {
-      switch (prop.key.name) {
+    init.properties.forEach(({ key, value }) => {
+      switch (key.name) {
         case 'name':
-          data.fileName = prop.value.value;
+          data.fileName = value.value;
           break;
         case 'path':
-          data.path = prop.value.value;
+          data.path = value.value;
           break;
         default:
           break;
       }
     });
 
-    const files = utils.filesMapSync(path.join(data.context, data.path || ''));
+    const files = utils.filesMapSync(path.join(data.context, data.path || '').replace(/\\/g, '/'));
 
     data.fileContent = utils.createSprite(utils.parseFiles(files, this.options), this.options.template);
     data.fileName = utils.hash(data.fileName, utils.hashByString(data.fileContent));
 
-    let replacement = expr.id.name + ' = { filename: ' + "__webpack_require__.p +" + '"' + data.fileName + '" }';
-    let dep = new ConstDependency(replacement, expr.range);
-    dep.loc = expr.loc;
-    parser.state.current.addDependency(dep);
+    const replacement = `${id.name} = { filename: __webpack_require__.p +"${data.fileName}" }`;
+    const dep = new ConstDependency(replacement, range);
+    dep.loc = loc;
+    state.current.addDependency(dep);
     // parse repl
-    this.addTask(parser.state.current.request, data);
+    this.addTask(state.current.request, data);
   }
 
   apply(compiler) {
     // AST parser
-    compatAddPlugin(compiler, 'compilation', (compilation, data) => {
+    compatAddPlugin(compiler, 'compilation', (compilation, { normalModuleFactory }) => {
       compilation.dependencyFactories.set(ConstDependency, new NullFactory());
       compilation.dependencyTemplates.set(ConstDependency, new ConstDependency.Template());
-      compatAddPlugin(data.normalModuleFactory, 'parser', (parser) => {
-        compatAddPlugin(parser, 'statement', (expr) => {
-          if (!expr.declarations || !expr.declarations.length) return;
-          const thisExpr = expr.declarations[0];
-          if (allowedMagicVariables.indexOf(thisExpr.id.name) > -1) {
-            return this.createTaskContext(thisExpr, parser);
-          }
-        });
-      }, false, 'javascript/auto');
+      compatAddPlugin(
+        normalModuleFactory,
+        'parser',
+        (parser) => {
+          compatAddPlugin(parser, 'statement', ({ declarations }) => {
+            if (!declarations || !declarations.length) return;
+            const thisExpr = declarations[0];
+            if (allowedMagicVariables.includes(thisExpr.id.name)) {
+              return this.createTaskContext(thisExpr, parser);
+            }
+          });
+        },
+        false,
+        'javascript/auto'
+      );
 
       // save file to fs
-      compatAddPlugin(compilation, 'additionalAssets', () => {
-        const taskKeysArr = Object.keys(this.tasks);
-        if (taskKeysArr.length === 0) return Promise.resolve();
-        else {
-          return Promise.all(taskKeysArr.map(async (key) => {
-            const tasksJobs = this.tasks[key];
-            return Promise.all(tasksJobs.map(async task => {
-              // add sprite to assets
-              compilation.assets[task.fileName] = {
-                size: () => Buffer.byteLength(task.fileContent, 'utf8'),
-                source: () => Buffer.from(task.fileContent)
-              };
-            }))
-          }));
-        }
-      }, true);
+      compatAddPlugin(
+        compilation,
+        'additionalAssets',
+        () => {
+          const taskKeysArr = Object.keys(this.tasks);
+          if (taskKeysArr.length === 0) return Promise.resolve();
+          else {
+            return Promise.all(
+              taskKeysArr.map(async (key) => {
+                const tasksJobs = this.tasks[key];
+                return Promise.all(
+                  tasksJobs.map(async ({ fileName, fileContent }) => {
+                    // add sprite to assets
+                    compilation.assets[fileName] = {
+                      size: () => Buffer.byteLength(fileContent, 'utf8'),
+                      source: () => Buffer.from(fileContent)
+                    };
+                  })
+                );
+              })
+            );
+          }
+        },
+        true
+      );
 
       compatAddPlugin(compilation, 'afterSeal', () => {
         this.tasks = {};
       });
-
     });
-
   }
-
 }
 
 /**
