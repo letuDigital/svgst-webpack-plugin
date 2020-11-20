@@ -9,36 +9,28 @@
 ╚══════╝  ╚═══╝   ╚═════╝     ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝                                                                     
 ```
 
-[![NPM](https://nodei.co/npm/svgstore-webpack-plugin.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/svgstore-webpack-plugin/)
+[![NPM](https://nodei.co/npm/svgst-webpack-plugin.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/svgst-webpack-plugin/)
 
 ## Package info
-[![Build Status](https://travis-ci.org/pafnuty/svgstore-webpack-plugin.svg?branch=master)](https://travis-ci.org/pafnuty/svgstore-webpack-plugin)
-[![NPM version](https://badge.fury.io/js/svgstore-webpack-plugin.svg)](https://badge.fury.io/js/svgstore-webpack-plugin)
-[![Code Climate](https://codeclimate.com/github/pafnuty/svgstore-webpack-plugin/badges/gpa.svg)](https://codeclimate.com/github/pafnuty/svgstore-webpack-plugin)
-[![Test Coverage](https://codeclimate.com/github/pafnuty/svgstore-webpack-plugin/badges/coverage.svg)](https://codeclimate.com/github/pafnuty/svgstore-webpack-plugin/coverage)
+[![Build Status](https://travis-ci.org/pafnuty/svgst-webpack-plugin.svg?branch=master)](https://travis-ci.org/pafnuty/svgst-webpack-plugin)
+[![NPM version](https://badge.fury.io/js/svgst-webpack-plugin.svg)](https://badge.fury.io/js/svgst-webpack-plugin)
+[![Code Climate](https://codeclimate.com/github/pafnuty/svgst-webpack-plugin/badges/gpa.svg)](https://codeclimate.com/github/pafnuty/svgst-webpack-plugin)
+[![Test Coverage](https://codeclimate.com/github/pafnuty/svgst-webpack-plugin/badges/coverage.svg)](https://codeclimate.com/github/pafnuty/svgst-webpack-plugin/coverage)
 
 ## Installation
 ```bash
-npm i svgstore-webpack-plugin --save-dev
+npm i svgst-webpack-plugin --save-dev
 ```
-
-## Webpack version support
-Use svgstore-webpack-plugin@3.x.x for Webpack 1.x.x  
-Use svgstore-webpack-plugin@4.x.x for Webpack 2.x.x,3.x.x,4.x.x. 
-## Node.js version support
-#### We do not maintain a version for node.js 0.12 anymore
-  Tested to work with with node.js 4.x,6.x,7.x,8.x
-
 
 ## Webpack configuration
 
-[EXAMPLE here](https://github.com/pafnuty/svgstore-webpack-plugin/tree/develop/platform)
+[EXAMPLE here](https://github.com/pafnuty/svgst-webpack-plugin/tree/master/platform)
 
 ## Usage
 #### 1) require plugin
 ```javascript
 //webpack.config.js
-var SvgStore = require('svgstore-webpack-plugin');
+var SvgStore = require('svgst-webpack-plugin');
 module.exports = {
   plugins: [
     // create svgStore instance object
@@ -68,7 +60,7 @@ var __svg__           = { path: './assets/svg/**/*.svg', name: 'assets/svg/[hash
 // var __svgsprite__  = { path: './assets/svg/minify/*.svg', name: 'assets/svg/[hash].1logos.svg' };
 
 // require basic or custom sprite loader
-require('svgstore-webpack-plugin/src/helpers/svgxhr')(__svg__);
+require('svgst-webpack-plugin/src/helpers/svgxhr')(__svg__);
 ```
 
 ##### Dear friends...
@@ -98,6 +90,6 @@ React JSX:
 
 ## License
 
-NPM package available here: [svgstore-webpack-plugin](https://www.npmjs.com/package/svgstore-webpack-plugin)
+NPM package available here: [svgst-webpack-plugin](https://www.npmjs.com/package/svgst-webpack-plugin)
 
 MIT © [Chernobrov Mike](http://mrsum.ru), [Gordey Levchenko](https://github.com/lgordey) , [Nadav Sinai](https://github.com/nadavsinai)

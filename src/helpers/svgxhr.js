@@ -1,7 +1,7 @@
 /**
  * Load svg via ajax
- * @generator: svgstore-webpack-plugin
- * @see: https://www.npmjs.com/package/svgstore-webpack-plugin
+ * @generator: svgst-webpack-plugin
+ * @see: https://www.npmjs.com/package/svgst-webpack-plugin
  * @return {boolean}     [description]
  * @param {object} options
  * @param {string} [options.filename]
