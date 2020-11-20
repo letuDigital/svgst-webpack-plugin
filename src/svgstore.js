@@ -1,7 +1,12 @@
-'use strict';
+// Depends
+const _ = require('lodash');
+const path = require('path');
+const utils = require('./helpers/utils');
+const ConstDependency = require('webpack/lib/dependencies/ConstDependency');
+const NullFactory = require('webpack/lib/NullFactory');
 
 // Defaults
-var _options = {
+const defaults = {
   svg: {
     xmlns: 'http://www.w3.org/2000/svg',
     style: 'position:absolute; width: 0; height: 0'
@@ -9,98 +14,131 @@ var _options = {
   svgoOptions: {},
   name: 'sprite.[hash].svg',
   prefix: 'icon-',
-  template: __dirname + '/templates/layout.pug'
+  template: path.join(__dirname, 'templates', 'layout.pug')
 };
 
-// Depends
-var _ = require('lodash');
-var path = require('path');
-var utils = require('./helpers/utils');
-var ConstDependency = require('webpack/lib/dependencies/ConstDependency');
-var async = require('async');
+function compatAddPlugin(compiler, hookName, callback, async = false, forType = null) {
+  const method = async ? 'tapPromise' : 'tap';
+  if (compiler.hooks) {
+    if (forType) {
+      compiler.hooks[hookName][method](forType, WebpackSvgStore.name, callback);
+    } else {
+      compiler.hooks[hookName][method](WebpackSvgStore.name, callback);
+    }
+  } else {
+    compiler.plugin(hookName, callback);
+  }
+}
 
-/**
- * Constructor
- * @param {string} input   [description]
- * @param {string} output  [description]
- * @param {object} options [description]
- * @return {object}
- */
-var WebpackSvgStore = function(options) {
-  this.options = _.merge({}, _options, options);
-  return this;
-};
+const allowedMagicVariables = ['__svg__', '__sprite__', '__svgstore__', '__svgsprite__', '__webpack_svgstore__'];
 
-WebpackSvgStore.prototype.apply = function(compiler) {
-  var tasks = {};
-  var options = this.options;
-  var parseRepl = function(file, value) {
-    tasks[file]
-      ? tasks[file].push(value)
-      : function() { tasks[file] = []; tasks[file].push(value); }();
-  };
+class WebpackSvgStore {
+  /**
+   * Constructor
+   * @param {object} options [description]
+   * @return {object}
+   */
+  constructor(options) {
+    this.tasks = {};
+    this.options = _.merge({}, defaults, options);
+  }
 
-  var analyzeAst = function(expr) {
-    var dep = false;
-    var data = {
+  addTask(file, value) {
+    this.tasks[file]
+      ? this.tasks[file].push(value)
+      : (() => {
+          this.tasks[file] = [];
+          this.tasks[file].push(value);
+        })();
+  }
+
+  createTaskContext({ init, id, range, loc }, { state }) {
+    const data = {
       path: '/**/*.svg',
       fileName: '[hash].sprite.svg',
-      context: this.state.current.context
+      context: state.current.context
     };
-    var replacement = false;
-    expr.init.properties.forEach(function(prop) {
-      switch (prop.key.name) {
-        case 'name': data.fileName = prop.value.value; break;
-        case 'path': data.path = prop.value.value; break;
-        default: break;
+
+    init.properties.forEach(({ key, value }) => {
+      switch (key.name) {
+        case 'name':
+          data.fileName = value.value;
+          break;
+        case 'path':
+          data.path = value.value;
+          break;
+        default:
+          break;
       }
     });
 
-    data.fileName = utils.hash(data.fileName, this.state.current.buildTimestamp);
+    const files = utils.filesMapSync(path.join(data.context, data.path || '').replace(/\\/g, '/'));
 
-    replacement = expr.id.name + ' = { filename: ' + "__webpack_require__.p +" + '"' + data.fileName + '" }';
-    dep = new ConstDependency(replacement, expr.range);
-    dep.loc = expr.loc;
-    this.state.current.addDependency(dep);
+    data.fileContent = utils.createSprite(utils.parseFiles(files, this.options), this.options.template);
+    data.fileName = utils.hash(data.fileName, utils.hashByString(data.fileContent));
+
+    const replacement = `${id.name} = { filename: __webpack_require__.p +"${data.fileName}" }`;
+    const dep = new ConstDependency(replacement, range);
+    dep.loc = loc;
+    state.current.addDependency(dep);
     // parse repl
-    parseRepl(this.state.current.request, data);
-  };
+    this.addTask(state.current.request, data);
+  }
 
-  // AST parser
-  compiler.parser.plugin('var __svg__', analyzeAst);
-  compiler.parser.plugin('var __sprite__', analyzeAst);
-  compiler.parser.plugin('var __svgstore__', analyzeAst);
-  compiler.parser.plugin('var __svgsprite__', analyzeAst);
-  compiler.parser.plugin('var __webpack_svgstore__', analyzeAst);
+  apply(compiler) {
+    // AST parser
+    compatAddPlugin(compiler, 'compilation', (compilation, { normalModuleFactory }) => {
+      compilation.dependencyFactories.set(ConstDependency, new NullFactory());
+      compilation.dependencyTemplates.set(ConstDependency, new ConstDependency.Template());
+      compatAddPlugin(
+        normalModuleFactory,
+        'parser',
+        (parser) => {
+          compatAddPlugin(parser, 'statement', ({ declarations }) => {
+            if (!declarations || !declarations.length) return;
+            const thisExpr = declarations[0];
+            if (allowedMagicVariables.includes(thisExpr.id.name)) {
+              return this.createTaskContext(thisExpr, parser);
+            }
+          });
+        },
+        false,
+        'javascript/auto'
+      );
 
-  // save file to fs
-  compiler.plugin('emit', function(compilation, callback) {
-    async.forEach(Object.keys(tasks), function(key, callback) {
-      async.forEach(tasks[key], function(task, callback) {
-        utils.filesMap(path.join(task.context, task.path || ''), function(files) {
-          // fileContent
-          var fileContent = utils.createSprite(
-            utils.parseFiles(files, options),
-            options.template
-          );
+      // save file to fs
+      compatAddPlugin(
+        compilation,
+        'additionalAssets',
+        () => {
+          const taskKeysArr = Object.keys(this.tasks);
+          if (taskKeysArr.length === 0) return Promise.resolve();
+          else {
+            return Promise.all(
+              taskKeysArr.map(async (key) => {
+                const tasksJobs = this.tasks[key];
+                return Promise.all(
+                  tasksJobs.map(async ({ fileName, fileContent }) => {
+                    // add sprite to assets
+                    compilation.assets[fileName] = {
+                      size: () => Buffer.byteLength(fileContent, 'utf8'),
+                      source: () => Buffer.from(fileContent)
+                    };
+                  })
+                );
+              })
+            );
+          }
+        },
+        true
+      );
 
-          // add sprite to assets
-          compilation.assets[task.fileName] = {
-            size: function() { return Buffer.byteLength(fileContent, 'utf8'); },
-            source: function() { return new Buffer(fileContent); }
-          };
-          // done
-          callback();
-        });
-      }.bind(this), callback);
-    }.bind(this), callback);
-  }.bind(this));
-
-  compiler.plugin('done', function() {
-    tasks = {};
-  });
-};
-
+      compatAddPlugin(compilation, 'afterSeal', () => {
+        this.tasks = {};
+      });
+    });
+  }
+}
 
 /**
  * Return function

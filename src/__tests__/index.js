@@ -1,30 +1,26 @@
-'use strict';
-
 // Depends
-var fs = require('fs');
-var chai = require('chai');
-var path = require('path');
-var webpack = require('webpack');
-var mocha = require('mocha');
-var describe = mocha.describe;
+const fs = require('fs');
+const chai = require('chai');
+const path = require('path');
+const webpack = require('webpack');
+const mocha = require('mocha');
+const describe = mocha.describe;
 
+const Plugin = require('../svgstore');
+const utils = require('../helpers/utils');
+const configPath = path.join(__dirname, '..', '..', 'webpack.config.js');
+const config = require(configPath);
 
-var Plugin = require('../svgstore');
-var utils = require('../helpers/utils');
-var configPath = path.join(__dirname, '..', '..', 'webpack.config.js');
-var config = require(configPath);
-
-var rawFilePath = path.resolve(__dirname, './svg/test_svg.svg');
-var compiledFilePath = path.resolve(__dirname, './svg/compiled_svg.svg');
-
+const rawFilePath = path.resolve(__dirname, './svg/test_svg.svg');
+const compiledFilePath = path.resolve(__dirname, './svg/compiled_svg.svg');
 
 /**
  * Run example
  * @param  {Function} done [description]
  * @return {[type]}        [description]
  */
-var runRelativePathsExample = function(done) {
-  webpack(config, function() {
+const runRelativePathsExample = function (done) {
+  webpack(config, function () {
     done();
   });
 };
@@ -34,47 +30,52 @@ var runRelativePathsExample = function(done) {
  * @param  {Function} done [description]
  * @return {[type]}        [description]
  */
-var runAbsolutePathsExample = function(done) {
-  var instance = new Plugin(path.join(__dirname, '..', 'svg-source', '**/*.svg'), path.join(__dirname, '..', 'sprites'), {
-    name: 'issue51.[hash].sprite.svg',
-    chunk: false, // if chunk is equal to false,
-    prefix: 'icon-',
-    svgoOptions: {}
-  });
+const runAbsolutePathsExample = function (done) {
+  const instance = new Plugin(
+    path.join(__dirname, '..', 'svg-source', '**/*.svg'),
+    path.join(__dirname, '..', 'sprites'),
+    {
+      name: 'issue51.[hash].sprite.svg',
+      chunk: false, // if chunk is equal to false,
+      prefix: 'icon-',
+      svgoOptions: {}
+    }
+  );
 
   // @see https://github.com/mrsum/webpack-svgstore-plugin/issues/51
   // replace plugin config
   config.plugins = [instance];
 
-  webpack(config, function() {
+  webpack(config, function () {
     done();
   });
 };
 
+describe('utils.log', function () {
+  const assert = chai.assert;
 
-describe('utils.log', function() {
-  var assert = chai.assert;
-
-  it('function is exists', function() {
+  it('function is exists', function () {
     assert.typeOf(utils.log, 'function');
   });
 
-  it('function is callable', function(done) {
+  it('function is callable', function (done) {
     utils.log({ message: 'Hello from tests' }, 3);
     done();
   });
 });
 
-
-describe('utils.hash', function() {
-  var assert = chai.assert;
-  it('function is exists', function() {
+describe('utils.hash', function () {
+  const assert = chai.assert;
+  it('function is exists', function () {
     assert.typeOf(utils.hash, 'function');
   });
 
-  it('check hashsum #1', function() {
+  it('check hashsum #1', function () {
     // var content = '<span>hello svg</span>';
-    assert.equal(utils.hash('[hash].sprite.svg', 'cdbf2bdb4f64b7f94b4779d2320918d9'), 'cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg');
+    assert.equal(
+      utils.hash('[hash].sprite.svg', 'cdbf2bdb4f64b7f94b4779d2320918d9'),
+      'cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg'
+    );
   });
 
   // it('check hashsum #2', function() {
@@ -84,18 +85,18 @@ describe('utils.hash', function() {
   // });
 });
 
-describe('utils.symbols', function() {
-  var assert = chai.assert;
-  it('function is exists', function() {
+describe('utils.symbols', function () {
+  const assert = chai.assert;
+  it('function is exists', function () {
     assert.typeOf(utils.symbols, 'function');
   });
 });
 
-describe('utils.createSprite', function() {
-  var arr = [];
-  var assert = chai.assert;
-  var output = fs.readFileSync(compiledFilePath, 'utf-8');
-  var options = {
+describe('utils.createSprite', function () {
+  const arr = [];
+  const assert = chai.assert;
+  const output = fs.readFileSync(compiledFilePath, 'utf-8');
+  const options = {
     svg: {
       xmlns: 'http://www.w3.org/2000/svg',
       style: 'position:absolute; width: 0; height: 0'
@@ -107,81 +108,79 @@ describe('utils.createSprite', function() {
     ajaxWrapper: false,
     template: path.join(__dirname, '..', 'templates/layout.pug')
   };
-  var source;
+  let source;
 
   arr.push(rawFilePath);
 
   source = utils.createSprite(utils.parseFiles(arr, options), options.template);
 
-  it('check full sprite creation', function(done) {
+  it('check full sprite creation', function (done) {
     done();
     // assert.equal(source, output);
   });
 });
 
-describe('utils.filesMap', function() {
-  var assert = chai.assert;
+describe('utils.filesMapSync', function () {
+  const assert = chai.assert;
 
-  it('should contain filesMap function', function() {
-    assert.typeOf(utils.filesMap, 'function');
+  it('should contain filesMapSync function', function () {
+    assert.typeOf(utils.filesMapSync, 'function');
   });
 
-  it('should callback filesMap function', function(done) {
-    utils.filesMap(path.join(__dirname, 'svg', '**', '*.svg'), function(items) {
-      assert.isArray(items);
-      assert(items.length > 0, 'Files array must be more than 0');
-      done();
-    });
+  it('should callback filesMapSync function', function () {
+    const items = utils.filesMapSync(path.join(__dirname, 'svg', '**', '*.svg'));
+    assert.isArray(items);
+    assert(items.length > 0, 'Files array must be more than 0');
   });
 });
 
-describe('utils.convertFilenameToId', function() {
-  var assert = chai.assert;
-  it('function is exists', function() {
+describe('utils.convertFilenameToId', function () {
+  const assert = chai.assert;
+  it('function is exists', function () {
     assert.typeOf(utils.convertFilenameToId, 'function');
   });
 
-  it('check function result #1 sprite.svg', function() {
+  it('check function result #1 sprite.svg', function () {
     assert.equal(utils.convertFilenameToId('sprite.svg'), 'sprite-svg');
   });
 
-  it('check function result #1 cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg', function() {
-    assert.equal(utils.convertFilenameToId('cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg'), 'cdbf2bdb4f64b7f94b4779d2320918d9-sprite-svg');
+  it('check function result #1 cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg', function () {
+    assert.equal(
+      utils.convertFilenameToId('cdbf2bdb4f64b7f94b4779d2320918d9.sprite.svg'),
+      'cdbf2bdb4f64b7f94b4779d2320918d9-sprite-svg'
+    );
   });
 });
 
+describe('plugin.WebpackSvgStore static functions', function () {
+  let WebpackSvgStore;
+  const assert = chai.assert;
 
-describe('plugin.WebpackSvgStore static functions', function() {
-  var WebpackSvgStore;
-  var assert = chai.assert;
-
-  it('function is exists', function() {
+  it('function is exists', function () {
     assert.typeOf(Plugin, 'function');
   });
 
-  it('try to create new object', function() {
+  it('try to create new object', function () {
     WebpackSvgStore = new Plugin();
   });
 
-  it('should be an object', function() {
+  it('should be an object', function () {
     assert.typeOf(WebpackSvgStore, 'object');
   });
 
-  it('should contain apply function', function() {
+  it('should contain apply function', function () {
     assert.typeOf(WebpackSvgStore.apply, 'function');
   });
 });
 
-
-describe('plugin.WebpackSvgStore', function() {
-  it('should run without errors', function(done) {
+describe('plugin.WebpackSvgStore', function () {
+  it('should run without errors', function (done) {
     runRelativePathsExample(done);
   });
 });
 
-describe('plugin.WebpackSvgStore side effect testing: issue-51', function() {
-  it('should run without errors', function(done) {
+describe('plugin.WebpackSvgStore side effect testing: issue-51', function () {
+  it('should run without errors', function (done) {
     runAbsolutePathsExample(done);
   });
 });
-

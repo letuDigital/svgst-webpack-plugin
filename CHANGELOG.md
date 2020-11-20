@@ -1,3 +1,38 @@
+### 6.0.0
+  - Move to normal js code
+   
+### 5.0.0
+  - Code refactor for better performance and maintainablity 
+  BREAKING CHANGE: 
+   - node.js 7.6.1+ is needed
+### 4.1.0
+
+- Support webpack v4 (backwards compatible)
+- Update dependencies to last versions
+- (dev) build on windows
+- Implement `hash` by svg sprite content
+
+
+### 4.0.3
+
+- Adding `ready` helper, fixes DOMContentLoaded & script race condition
+
+### 4.0.2
+
+- Insert sprite on DOMContentLoaded
+
+### 4.0.1
+
+- Fix missing sprite variables
+
+### 4.0.0
+
+- Support webpack v2
+
+### 3.0.6
+
+- Update dependencies to last versions
+
 ### 3.0.2
 
 - Minor readme change

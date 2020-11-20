@@ -1,15 +1,13 @@
-'use strict';
-
 // Depends
-var _ = require('lodash');
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
-var crypto = require('crypto');
-var pug = require('pug');
-var Svgo = require('svgo');
-var globby = require('globby');
-var parse = require('htmlparser2');
+const _ = require('lodash');
+const fs = require('fs');
+const path = require('path');
+const util = require('util');
+const crypto = require('crypto');
+const pug = require('pug');
+const Svgo = require('svgo');
+const globby = require('globby');
+const parse = require('htmlparser2');
 
 /**
  * Create sprite
@@ -17,20 +15,22 @@ var parse = require('htmlparser2');
  * @param  {string} template
  * @return {string}
  */
-var _createSprite = function(data, template) {
-  return pug.renderFile(template, data);
-};
+const _createSprite = (data, template) => pug.renderFile(template, data);
 
 /**
  * Depth log
  * @param  {object}   subject Consolable object or array
- * @param  {integer}  depth   Depth level
+ * @param  {number}  depth   Depth level
  * @return {void}
  */
-var _log = function(subject, depth) {
-  console.log(util.inspect(subject, {
-    showHidden: true, depth: depth || 2
-  }));
+const _log = (subject, depth) => {
+  // eslint-disable-next-line no-console
+  console.log(
+    util.inspect(subject, {
+      showHidden: true,
+      depth: depth || 2
+    })
+  );
 };
 
 /**
@@ -39,14 +39,14 @@ var _log = function(subject, depth) {
  * @param  {string} id
  * @return {void}
  */
-var _fixIds = function(obj, id) {
+const _fixIds = ({ attribs, name }, id) => {
   // add id
-  if (obj.attribs && obj.attribs.id) {
-    obj.attribs.id = [id, obj.attribs.id].join('-');
+  if (attribs && attribs.id) {
+    attribs.id = [id, attribs.id].join('-');
   }
   // add id to use tag
-  if (obj.name === 'use') {
-    obj.attribs['xlink:href'] = ['#' + id, obj.attribs['xlink:href'].replace('#', '')].join('-');
+  if (name === 'use') {
+    attribs['xlink:href'] = [`#${id}`, attribs['xlink:href'].replace('#', '')].join('-');
   }
 };
 
@@ -56,16 +56,17 @@ var _fixIds = function(obj, id) {
  * @param  {string} id
  * @return {void}
  */
-var _fixUrls = function(obj, id) {
-  var key;
-  var match;
-  var json = obj.attribs;
+const _fixUrls = ({ attribs }, id) => {
+  let key;
+  let match;
+  const json = attribs;
   if (json) {
     for (key in json) {
+      // eslint-disable-next-line no-prototype-builtins
       if (json.hasOwnProperty(key)) {
         match = /url\(\s*#([^ ]+?)\s*\)/g.exec(json[key]);
         if (key && match) {
-          json[key] = 'url(#' + id + '-' + match[1] + ')';
+          json[key] = `url(#${id}-${match[1]})`;
         }
       }
     }
@@ -74,15 +75,14 @@ var _fixUrls = function(obj, id) {
 
 /**
  * Svg parser
- * @param  {[type]} arr   [description]
- * @param  {[type]} id    [description]
+ * @param  {array} arr   [description]
+ * @param  {string} id    [description]
  * @return {[type]}       [description]
  */
-var _parseSVG = function(arr, id) {
-  var data = [];
-  arr.forEach(function(obj) {
+const _parseSVG = (arr, id) => {
+  arr.forEach((obj) => {
     if (obj) {
-      // add unic ids to urls
+      // add unique ids to urls
       _fixUrls(obj, id);
       // add ids
       _fixIds(obj, id);
@@ -90,37 +90,34 @@ var _parseSVG = function(arr, id) {
       if (obj.children && obj.children.length > 0) {
         _parseSVG(obj.children, id);
       }
-      data.push(obj, id);
     }
   });
-
-  return data;
 };
 
 /**
  * Defs parser
- * @param  {[type]} id   [description]
- * @param  {[type]} data [description]
- * @return {[type]}      [description]
+ * @param  {string} id   [description]
+ * @param {object} children
+ * @param  {array} data [description]
+ * @return {array}      [description]
  */
-var _defs = function(id, dom, data) {
+const _defs = (id, { children }, data) => {
   // lets find defs into dom
-  var defs = _.filter(dom.children, { name: 'defs' });
-  var parseChilds = function(item, data) {
-    item.forEach(function(child) {
+  const defs = _.filter(children, { name: 'defs' });
+  const parseChildItems = (item, data) => {
+    item.forEach((child) => {
       switch (child.name) {
-        case 'use': {
-          child.attribs['xlink:href'] = ['#' + id, child.attribs['xlink:href'].replace('#', '') ].join('-');
-        } break;
+        case 'use':
+          child.attribs['xlink:href'] = [`#${id}`, child.attribs['xlink:href'].replace('#', '')].join('-');
+
+          break;
         default:
-          child.attribs && child.attribs.id
-            ? child.attribs.id = [id, child.attribs.id].join('-')
-            : null;
+          // eslint-disable-next-line no-unused-expressions
+          child.attribs && child.attribs.id ? (child.attribs.id = [id, child.attribs.id].join('-')) : null;
       }
 
       if (child && child.children && child.children.length > 0) {
-        data.push(child);
-        parseChilds(child.children, data);
+        parseChildItems(child.children, data);
       }
 
       if (child && child.attribs && child.attribs.id) {
@@ -129,9 +126,9 @@ var _defs = function(id, dom, data) {
     });
   };
 
-  defs.forEach(function(item) {
-    if (item.children && item.children.length > 0) {
-      parseChilds(item.children, data);
+  defs.forEach(({ children }) => {
+    if (children && children.length > 0) {
+      parseChildItems(children, data);
     }
   });
 
@@ -140,17 +137,20 @@ var _defs = function(id, dom, data) {
 
 /**
  * Symbols parser
- * @param  {[type]} id   [description]
- * @param  {[type]} data [description]
+ * @param  {string} id   [description]
+ * @param attribs
+ * @param children
+ * @param  {array} data [description]
+ * @param prefix
  * @return {[type]}      [description]
  */
-var _symbols = function(id, dom, data, prefix) {
+const _symbols = (id, { attribs, children }, data, prefix) => {
   // create symbol object
-  var symbol = {
+  const symbol = {
     type: 'tag',
     name: 'symbol',
     attribs: {
-      viewBox: dom.attribs.viewBox,
+      viewBox: attribs ? attribs.viewBox : null,
       id: prefix + id
     },
     next: null,
@@ -159,9 +159,7 @@ var _symbols = function(id, dom, data, prefix) {
   };
 
   // add dom children without defs and titles
-  symbol.children = _.filter(dom.children, function(obj) {
-    return obj.name !== 'defs' && obj.name !== 'title';
-  });
+  symbol.children = _.filter(children, ({ name }) => name !== 'defs' && name !== 'title');
 
   // go through the svg element
   _parseSVG(symbol.children, id);
@@ -177,30 +175,18 @@ var _symbols = function(id, dom, data, prefix) {
  * @param  {string} filename [description]
  * @return {string}          [description]
  */
-var _convertFilenameToId = function(filename) {
-  return filename.split('.').join('-').toLowerCase();
-};
-
-/**
- * Build files map
- * @param  {string} input Destination path
- * @return {array}        Array of paths
- */
-var _filesMap = function(input, cb) {
-  var data = input;
-
-  globby(data).then(function(fileList) {
-    cb(fileList);
-  });
-};
+const _convertFilenameToId = (filename) => filename.split('.').join('-').toLowerCase();
 
 /**
  * Parse dom objects
- * @param  {[type]} dom [description]
- * @return {[type]}     [description]
+ * @param data
+ * @param filename
+ * @param  {array} dom [description]
+ * @param prefix
+ * @return {object}     [description]
  */
-var _parseDomObject = function(data, filename, dom, prefix) {
-  var id = _convertFilenameToId(filename);
+const _parseDomObject = (data, filename, dom, prefix) => {
+  const id = _convertFilenameToId(filename);
   if (dom && dom[0]) {
     _defs(id, dom[0], data.defs);
     _symbols(id, dom[0], data.symbols, prefix);
@@ -212,17 +198,19 @@ var _parseDomObject = function(data, filename, dom, prefix) {
 /**
  * Minify via SVGO
  * @param  {string}   file  filename
- * @param  {integer}  loop  loop count
- * @return {[type]}         minified source
+ * @param svgoOptions
+ * @return {string}         minified source
  */
-var _minify = function(file, svgoOptions) {
-  var min = new Svgo(svgoOptions);
-  var source = file;
+const _minify = (file, svgoOptions) => {
+  const min = new Svgo(svgoOptions);
+  let source = file;
 
-  function svgoCallback(result) {
-    source = result.data;
+  function svgoCallback({ data }) {
+    source = data;
   }
 
+  // TODO find out why we do not use promise here
+  // Promise has appeared since version 1.0.0, in version 0.7.1 it works fine
   min.optimize(source, svgoCallback);
 
   return source;
@@ -230,30 +218,30 @@ var _minify = function(file, svgoOptions) {
 
 /**
  * [parseFiles description]
- * @return {[type]} [description]
+ * @return {object} [description]
  */
-var _parseFiles = function(files, options) {
-  var self = this;
-  var data = {
-    svg: options.svg,
+const _parseFiles = function (files, { svg, svgoOptions, prefix }) {
+  const self = this;
+  let data = {
+    svg,
     defs: [],
     symbols: []
   };
 
   // each over files
-  files.forEach(function(file) {
+  files.forEach((file) => {
     // load and minify
-    var buffer = _minify(fs.readFileSync(file, 'utf8'), options.svgoOptions);
+    const buffer = _minify(fs.readFileSync(file, 'utf8'), svgoOptions);
     // get filename for id generation
-    var filename = path.basename(file, '.svg');
+    const filename = path.basename(file, '.svg');
 
-    var handler = new parse.DomHandler(function(error, dom) {
+    const handler = new parse.DomHandler((error, dom) => {
       if (error) self.log(error);
-      else data = _parseDomObject(data, filename, dom, options.prefix);
+      else data = _parseDomObject(data, filename, dom, prefix);
     });
 
     // lets create parser instance
-    var Parser = new parse.Parser(handler, {
+    const Parser = new parse.Parser(handler, {
       xmlMode: true
     });
     Parser.write(buffer);
@@ -265,14 +253,22 @@ var _parseFiles = function(files, options) {
 
 /**
  * [_hash description]
- * @param  {[type]} buffer [description]
- * @param  {[type]} name   [description]
  * @return {[type]}        [description]
+ * @param str
+ * @param hash
  */
-var _hash = function(str, hash) {
-  return str.indexOf('[hash]') >= 0
-    ? str.replace('[hash]', hash)
-    : str;
+const _hash = (str, hash) => (str.includes('[hash]') ? str.replace('[hash]', hash) : str);
+
+/**
+ * [_hashByString description]
+ * @param {string} str
+ * @return {string} [description]
+ */
+const _hashByString = (str) => {
+  const sha = crypto.createHash('md5');
+  sha.update(str);
+
+  return sha.digest('hex');
 };
 
 /**
@@ -282,6 +278,13 @@ var _hash = function(str, hash) {
  * @return {[type]}        [description]
  */
 module.exports.hash = _hash;
+
+/**
+ * Create md5 hash by string
+ * @param {string} str
+ * @return {string} hash
+ */
+module.exports.hashByString = _hashByString;
 
 /**
  * Deep log util
@@ -297,11 +300,11 @@ module.exports.log = _log;
 module.exports.parseFiles = _parseFiles;
 
 /**
- * Build files map
+ * Build files map sync
  * @param  {string} input Destination path
  * @return {array}        Array of paths
  */
-module.exports.filesMap = _filesMap;
+module.exports.filesMapSync = globby.sync;
 
 /**
  * Parse dom objects
@@ -333,7 +336,6 @@ module.exports.parseSVG = _parseSVG;
 
 /**
  * [convertFilenameToId description]
- * @type {[type]}
  */
 module.exports.convertFilenameToId = _convertFilenameToId;
 
@@ -356,7 +358,7 @@ module.exports.symbols = _symbols;
 /**
  * Minify via SVGO
  * @param  {string}   file  filename
- * @param  {integer}  loop  loop count
+ * @param  {boolean}  loop  loop count
  * @return {[type]}         minified source
  */
 module.exports.minify = _minify;

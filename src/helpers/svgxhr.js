@@ -1,49 +1,65 @@
 /**
  * Load svg via ajax
- * @param  {string} url path to svg sprite
- * @generator: webpack-svgstore-plugin
- * @see: https://www.npmjs.com/package/webpack-svgstore-plugin
- * @return {[type]}     [description]
+ * @generator: svgstore-webpack-plugin
+ * @see: https://www.npmjs.com/package/svgstore-webpack-plugin
+ * @return {boolean}     [description]
+ * @param {object} options
+ * @param {string} [options.filename]
+ * @param {boolean} [options.addBaseUrl]
  */
-var svgXHR = function(options) {
-  var url = false;
-  var baseUrl = undefined;
+const svgXHR = (options) => {
+  let url;
 
-  options && options.filename
-    ? url = options.filename
-    : null;
+  url = options && options.filename ? options.filename : null;
 
-  if (!url) return false;
-  var _ajax = new XMLHttpRequest();
-  var _fullPath;
-
-  if (typeof XDomainRequest !== 'undefined') {
-    _ajax = new XDomainRequest();
+  if (!url) {
+    return false;
   }
+  const ajax = new XMLHttpRequest();
 
-  if (typeof baseUrl === 'undefined') {
-    if (typeof window.baseUrl !== 'undefined') {
-      baseUrl = window.baseUrl;
-    } else {
-      baseUrl = window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+  if (options.addBaseUrl) {
+    let baseUrl;
+    if (typeof baseUrl === 'undefined') {
+      if (typeof window.baseUrl !== 'undefined') {
+        baseUrl = window.baseUrl;
+      } else {
+        baseUrl = `${window.location.protocol}//${window.location.hostname}${
+          window.location.port ? `:${window.location.port}` : ''
+        }`;
+      }
     }
+    url = `${baseUrl}/${url}`;
   }
+  const fullPath = url.replace(/([^:]\/)\/+/g, '$1');
 
-  _fullPath = (baseUrl + '/' + url).replace(/([^:]\/)\/+/g, '$1');
-  _ajax.open('GET', _fullPath, true);
-  _ajax.onprogress = function() {};
-  _ajax.onload = function() {
-    if(!_ajax.responseText || _ajax.responseText.substr(0, 4) !== "<svg") {
-      throw Error("Invalid SVG Response");
+  ajax.open('GET', fullPath, true);
+
+  ajax.onload = () => {
+    if (!ajax.responseText || ajax.responseText.substr(0, 4) !== '<svg') {
+      throw Error('Invalid SVG Response');
     }
-    if((_ajax.status < 200 || _ajax.status >= 300) && _ajax.status !== 0) {
+    if (ajax.status < 200 || ajax.status >= 300) {
       return;
     }
-    var div = document.createElement('div');
-    div.innerHTML = _ajax.responseText;
+    const div = document.createElement('div');
+    div.innerHTML = ajax.responseText;
     document.body.insertBefore(div, document.body.childNodes[0]);
   };
-  _ajax.send();
+  ajax.send();
 };
 
-module.exports = svgXHR;
+/**
+ * jQuery like $.ready function.
+ *
+ * @return void
+ * @param callback
+ */
+function domready(callback) {
+  if (document.readyState === 'complete' || (document.readyState !== 'loading' && !document.documentElement.doScroll)) {
+    callback();
+  } else {
+    document.addEventListener('DOMContentLoaded', callback);
+  }
+}
+
+export default svgXHR;
