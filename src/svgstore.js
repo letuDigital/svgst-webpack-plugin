@@ -21,7 +21,7 @@ function compatAddPlugin(compiler, hookName, callback, async = false, forType = 
   const method = async ? 'tapPromise' : 'tap';
   if (compiler.hooks) {
     if (forType) {
-      compiler.hooks[hookName][method](forType, WebpackSvgStore.name, callback);
+      compiler.hooks[hookName].for(forType)[method](WebpackSvgStore.name, callback);
     } else {
       compiler.hooks[hookName][method](WebpackSvgStore.name, callback);
     }

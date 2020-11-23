@@ -1,6 +1,6 @@
 {
-  "name": "svgstore-webpack-plugin",
-  "version": "6.0.0",
+  "name": "svgst-webpack-plugin",
+  "version": "6.0.1",
   "description": "Svgstore webpack plugin",
   "main": "src/svgstore.js",
   "scripts": {
@@ -54,6 +54,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/pafnuty/svgstore-webpack-plugin"
+    "url": "https://github.com/pafnuty/svgst-webpack-plugin"
   }
 }
